@@ -25,8 +25,14 @@ export default [
         beforeEach: "readonly",
         it: "readonly",
         expect: "readonly",
-        // Browser globals
+
+        // Browser globals (React/Vite)
+        window: "readonly",
+        document: "readonly",
+        fetch: "readonly",
+        KeyboardEvent: "readonly",
         HTMLElement: "readonly",
+
         // Node.js globals
         process: "readonly",
         console: "readonly"
