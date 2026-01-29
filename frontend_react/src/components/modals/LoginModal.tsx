@@ -1,18 +1,49 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal } from './Modal';
-
-type Role = 'customer' | 'vendor' | 'admin';
+import { login as apiLogin, fetchMe } from '../../api/auth';
+import { sessionStore } from '../../state/session';
 
 export function LoginModal({
   open,
   onClose,
-  onLogin,
+  onLoggedIn,
 }: {
   open: boolean;
   onClose: () => void;
-  onLogin: (role: Role) => void;
+  onLoggedIn: () => void;
 }) {
-  const [role, setRole] = useState<Role>('customer');
+  const [email, setEmail] = useState('customer@example.com');
+  const [password, setPassword] = useState('password123');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = useMemo(() => email.trim().length > 3 && password.trim().length >= 6 && !loading, [email, password, loading]);
+
+  async function onSubmit() {
+    setError(null);
+    setLoading(true);
+    try {
+      const r = await apiLogin(email.trim(), password);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+
+      sessionStore.setToken(r.data.access_token);
+
+      const me = await fetchMe();
+      if (!me.ok) {
+        // Token stored, but /me failed; keep token and force re-login if needed.
+        setError(me.error);
+        return;
+      }
+      sessionStore.setUser(me.data);
+
+      onLoggedIn();
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <Modal
@@ -21,43 +52,42 @@ export function LoginModal({
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose}>
+          <button className="btn" onClick={onClose} disabled={loading}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={() => onLogin(role)}>
-            Continue
+          <button className="btn btn-primary" onClick={onSubmit} disabled={!canSubmit}>
+            {loading ? 'Signing in…' : 'Continue'}
           </button>
         </>
       }
     >
       <div style={{ display: 'grid', gap: 10 }}>
         <div className="muted" style={{ fontSize: 13 }}>
-          This is a placeholder login. Choose a role to see role-based navigation.
+          Demo backend auth: use seeded accounts (e.g., <code>customer@example.com</code> / <code>password123</code>).
         </div>
 
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontWeight: 700, fontSize: 13 }}>Role</span>
-          <select
-            className="input"
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
-            aria-label="Select role"
-          >
-            <option value="customer">Customer</option>
-            <option value="vendor">Vendor</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
+        {error ? (
+          <div className="card" style={{ padding: 12, borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)' }}>
+            <div style={{ fontWeight: 900, color: 'var(--danger)' }}>Login failed</div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+              {error}
+            </div>
+          </div>
+        ) : null}
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 700, fontSize: 13 }}>Email</span>
-          <input className="input" placeholder="you@example.com" />
+          <input className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 700, fontSize: 13 }}>Password</span>
-          <input className="input" placeholder="••••••••" type="password" />
+          <input className="input" placeholder="••••••••" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
+
+        <div className="muted" style={{ fontSize: 12 }}>
+          Role is derived from the backend user profile (<code>/api/me</code>) after login.
+        </div>
       </div>
     </Modal>
   );

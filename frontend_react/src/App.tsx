@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -25,15 +25,33 @@ type LayoutProps = {
 };
 
 function AppLayout({ children }: LayoutProps) {
-  const { role } = useSession();
+  const { role, token, authRequired, logout, setAuthRequired } = useSession();
   const cart = useCart();
   const [cartOpen, setCartOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const showSidebar = role === 'admin' || role === 'vendor';
-
   const totalQty = useMemo(() => cart.items.reduce((sum, it) => sum + it.qty, 0), [cart.items]);
+
+  useEffect(() => {
+    function onAuthRequired() {
+      setAuthRequired(true);
+      setLoginOpen(true);
+    }
+    window.addEventListener('um:auth:required', onAuthRequired as any);
+    return () => window.removeEventListener('um:auth:required', onAuthRequired as any);
+  }, [setAuthRequired]);
+
+  useEffect(() => {
+    if (authRequired) setLoginOpen(true);
+  }, [authRequired]);
+
+  useEffect(() => {
+    // When token is present, fetch latest server-side cart.
+    if (token) cart.refresh();
+    else cart.clearLocal();
+  }, [token, cart]);
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -42,6 +60,8 @@ function AppLayout({ children }: LayoutProps) {
         cartCount={totalQty}
         onOpenCart={() => setCartOpen(true)}
         onOpenLogin={() => setLoginOpen(true)}
+        onLogout={logout}
+        isLoggedIn={!!token}
       />
 
       <div
@@ -77,11 +97,13 @@ function AppLayout({ children }: LayoutProps) {
 
       <LoginModal
         open={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        onLogin={(nextRole) => {
-          cart.clear(); // simple reset for demo; real apps typically keep cart.
-          sessionStore.setRole(nextRole);
+        onClose={() => {
           setLoginOpen(false);
+          setAuthRequired(false);
+        }}
+        onLoggedIn={() => {
+          setLoginOpen(false);
+          setAuthRequired(false);
         }}
       />
 
@@ -89,7 +111,7 @@ function AppLayout({ children }: LayoutProps) {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         onConfirm={() => {
-          cart.clear();
+          cart.refresh();
           setCheckoutOpen(false);
         }}
       />
@@ -109,6 +131,8 @@ function RoleGuard({ allow, children }: { allow: Array<'customer' | 'vendor' | '
 
 // PUBLIC_INTERFACE
 export function App() {
+  // On initial mount, we can attempt to restore token (handled by session store)
+  // and let pages/components fetch data as needed.
   return (
     <BrowserRouter>
       <AppLayout>

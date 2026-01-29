@@ -18,11 +18,15 @@ export function Header({
   cartCount,
   onOpenCart,
   onOpenLogin,
+  onLogout,
+  isLoggedIn,
 }: {
   role: Role;
   cartCount: number;
   onOpenCart: () => void;
   onOpenLogin: () => void;
+  onLogout: () => void;
+  isLoggedIn: boolean;
 }) {
   return (
     <header
@@ -81,9 +85,15 @@ export function Header({
             Account
           </NavLink>
 
-          <button className="btn btn-primary" onClick={onOpenLogin}>
-            Login
-          </button>
+          {isLoggedIn ? (
+            <button className="btn" onClick={onLogout}>
+              Logout
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={onOpenLogin}>
+              Login
+            </button>
+          )}
         </nav>
       </div>
     </header>

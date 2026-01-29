@@ -32,6 +32,10 @@ export default [
         fetch: "readonly",
         KeyboardEvent: "readonly",
         HTMLElement: "readonly",
+        localStorage: "readonly",
+        CustomEvent: "readonly",
+        Response: "readonly",
+        URLSearchParams: "readonly",
 
         // Node.js globals
         process: "readonly",
