@@ -85,4 +85,3 @@ export function useSession() {
     setAuthRequired: sessionStore.setAuthRequired,
   };
 }
-useSession.getState = sessionStore.getState;
